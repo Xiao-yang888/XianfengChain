@@ -1,13 +1,14 @@
 package chain
 
 import (
+	"XianfengChain04/consensus"
 	"XianfengChain04/utils"
 	"bytes"
 	"crypto/sha256"
 	"time"
 )
 
-const VERSION = 0x00;
+const VERSION = 0x00
 
 /**
  *区块的结构体定义
@@ -29,12 +30,12 @@ type Block struct {
  *计算区块的hash值并进行赋值
  */
 func (block *Block) CalculateBlockHash()  {
-	heightByte, _ := utils.Int2Byte(block.Height)
-	versionByte, _ := utils.Int2Byte(block.Version)
-	timeByte, _ := utils.Int2Byte(block.TimeStamp)
-	nonceByte, _ := utils.Int2Byte(block.Nonce)
-
-	blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Data}, []byte{})
+	//heightByte, _ := utils.Int2Byte(block.Height)
+	//versionByte, _ := utils.Int2Byte(block.Version)
+	//timeByte, _ := utils.Int2Byte(block.TimeStamp)
+	//nonceByte, _ := utils.Int2Byte(block.Nonce)
+	//
+	//blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Data}, []byte{})
     //为区块的hash字段赋值
 	block.Hash = sha256.Sum256(blockByte)
 }
@@ -52,6 +53,10 @@ func CreateGenesis(data []byte) Block {
 	}
 	//todo 寻找并设置nonce，计算并设置hash
     genesis.CalculateBlockHash()
+
+	proof := consensus.NewPoW(genesis)
+	genesis.Nonce = proof.FindNonce()
+
 	return genesis
 }
 
@@ -70,5 +75,7 @@ func NewBlock(height int64, prev [32]byte, data []byte) Block {
 	//todo 设计哈希 寻找并设置nonce值
 	//设置区块哈希
 	newBlock.CalculateBlockHash()
+	proof := consensus.NewPoW(newBlock)
+	newBlock.Nonce = proof.FindNonce()
 	return newBlock
 }
