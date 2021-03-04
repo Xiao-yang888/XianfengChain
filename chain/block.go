@@ -26,16 +26,35 @@ type Block struct {
 	Data      []byte
 }
 
+func (block Block) GetHeight() int64 {
+	return block.Height
+}
+
+func (block Block) GetVersion() int64 {
+	return block.Version
+}
+
+func (block Block) GetTimeStamp() int64 {
+	return block.TimeStamp
+}
+
+func (block Block) GetPrevHash() [32]byte {
+	return block.PrevHash
+}
+
+func (block Block) GetData() []byte {
+	return block.Data
+}
 /**
  *计算区块的hash值并进行赋值
  */
 func (block *Block) CalculateBlockHash()  {
-	//heightByte, _ := utils.Int2Byte(block.Height)
-	//versionByte, _ := utils.Int2Byte(block.Version)
-	//timeByte, _ := utils.Int2Byte(block.TimeStamp)
-	//nonceByte, _ := utils.Int2Byte(block.Nonce)
-	//
-	//blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Data}, []byte{})
+	heightByte, _ := utils.Int2Byte(block.Height)
+	versionByte, _ := utils.Int2Byte(block.Version)
+	timeByte, _ := utils.Int2Byte(block.TimeStamp)
+	nonceByte, _ := utils.Int2Byte(block.Nonce)
+
+	blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Data}, []byte{})
     //为区块的hash字段赋值
 	block.Hash = sha256.Sum256(blockByte)
 }
