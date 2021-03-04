@@ -70,11 +70,12 @@ func CreateGenesis(data []byte) Block {
 		TimeStamp: time.Now().Unix(),
 		Data:      data,
 	}
-	//todo 寻找并设置nonce，计算并设置hash
-    genesis.CalculateBlockHash()
 
+	//调用pow，实现hash计算和寻找nonce
 	proof := consensus.NewPoW(genesis)
-	genesis.Nonce = proof.FindNonce()
+	hash, nonce := proof.FindNonce()
+    genesis.Hash = hash
+    genesis.Nonce = nonce
 
 	return genesis
 }
@@ -91,10 +92,9 @@ func NewBlock(height int64, prev [32]byte, data []byte) Block {
 		Data:      data,
 	}
 
-	//todo 设计哈希 寻找并设置nonce值
-	//设置区块哈希
-	newBlock.CalculateBlockHash()
 	proof := consensus.NewPoW(newBlock)
-	newBlock.Nonce = proof.FindNonce()
+	hash, nonce := proof.FindNonce()
+	newBlock.Hash = hash
+	newBlock.Nonce = nonce
 	return newBlock
 }
