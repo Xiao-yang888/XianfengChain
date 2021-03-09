@@ -32,11 +32,7 @@ func main() {
 	}
 
 	//测试
-	lastBlock, err := blockChain.GetLastBlock()
-    if err !=  nil {
-    	fmt.Println(err)
-		return
-	}
+	lastBlock := blockChain.GetLastBlock()
 	fmt.Println("最新区块是：", lastBlock)
 
 	blocks, err := blockChain.GetAllBlocks()
