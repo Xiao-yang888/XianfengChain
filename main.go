@@ -3,25 +3,49 @@ package main
 import (
 	"XianfengChain04/chain"
 	"fmt"
+	"github.com/bolt-master"
 )
 
+const BLOCKS = "xiangfengchain04.db"
+
 func main() {
-	blockChain := chain.CreateChainWithGensis([]byte("hello world"))
-	blockChain.CreateNewBlock([]byte("hello"))
-	fmt.Println("区块链中的区块个数:", len(blockChain.Blocks))
 
-	fmt.Println("区块0：", blockChain.Blocks[0])
-	//fmt.Println("区块1：", blockChain.Blocks[1])
-
-	firstBlock := blockChain.Blocks[0]
-	firstBytes, err := firstBlock.Serialize()
+	//打开数据库文件
+	db, err := bolt.Open(BLOCKS, 0600, nil)
 	if err != nil {
 		panic(err.Error())
 	}
-	//反序列化，验证逆过程
-	deFirstBlock, err := chain.Deserialize(firstBytes)
-	if err != nil {
-		panic(err.Error())
+    defer db.Close()//xxx.db.lock
+
+    blockChain := chain.CreateChain(db)
+    //创世区块
+    err = blockChain.CreateGensis([]byte("hello world"))
+    if err != nil {
+    	fmt.Println(err.Error())
+		return
 	}
-	fmt.Println(string(deFirstBlock.Data))
+	//新增一个区块
+	err = blockChain.CreateNewBlock([]byte("hello"))
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	//测试
+	lastBlock, err := blockChain.GetLastBlock()
+    if err !=  nil {
+    	fmt.Println(err)
+		return
+	}
+	fmt.Println("最新区块是：", lastBlock)
+
+	blocks, err := blockChain.GetAllBlocks()
+    if err != nil {
+    	fmt.Println(err.Error())
+		return
+	}
+	for index, block := range blocks{
+		fmt.Printf("第%d个区块：\n", index)
+		fmt.Println(block)
+	}
 }
