@@ -112,7 +112,10 @@ func (cmd *CmdClient) GetLastBlock() {
 	fmt.Println("恭喜获取到最新区块")
 	fmt.Printf("区块高度：%d\n", lasBlock.Height)
 	fmt.Printf("区块哈希：%f\n", lasBlock.Hash)
-	fmt.Printf("最新区块数据：%s\n", lasBlock.Data)
+	for index, tx := range lasBlock.Transactions {
+		fmt.Printf("最新区块交易：%d, 交易：%v\n", index, tx)
+	}
+
 }
 
 func (cmd *CmdClient) GetAllBlocks() {
@@ -123,7 +126,7 @@ func (cmd *CmdClient) GetAllBlocks() {
 	}
 	fmt.Println("恭喜，查询到所有区块数据")
 	for _, block := range blocks {
-		fmt.Printf("区块高度：%d，区块哈希：%x，区块数据：%s\n", block.Height, block.Hash, block.Data)
+		fmt.Printf("区块高度：%d，区块哈希：%x，区块交易：%s\n", block.Height, block.Hash, block.Transactions)
 	}
 }
 

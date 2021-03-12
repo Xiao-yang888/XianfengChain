@@ -2,10 +2,12 @@ package chain
 
 import (
 	"XianfengChain04/consensus"
+	"XianfengChain04/transaction"
 	"XianfengChain04/utils"
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
 	"time"
 )
 
@@ -24,7 +26,7 @@ type Block struct {
 	//Difficulty int64
 	Nonce     int64
 	//区块体
-	Data      []byte
+	Transactions []transaction.Transaction
 }
 
 func (block Block) GetHeight() int64 {
@@ -43,8 +45,8 @@ func (block Block) GetPrevHash() [32]byte {
 	return block.PrevHash
 }
 
-func (block Block) GetData() []byte {
-	return block.Data
+func (block Block) GetTransactions() []transaction.Transaction {
+	return block.Transactions
 }
 /**
  *计算区块的hash值并进行赋值
@@ -55,7 +57,7 @@ func (block *Block) CalculateBlockHash()  {
 	timeByte, _ := utils.Int2Byte(block.TimeStamp)
 	nonceByte, _ := utils.Int2Byte(block.Nonce)
 
-	blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Data}, []byte{})
+	blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Transactions}, []byte{})
     //为区块的hash字段赋值
 	block.Hash = sha256.Sum256(blockByte)
 }
@@ -85,16 +87,18 @@ func Deserialize(data []byte) (Block, error) {
  *生成创世区块的函数
  */
 func CreateGenesis(data []byte) Block {
+	fmt.Println("创建创世区块数据并未存储到交易中")
+	tx := transaction.Transaction{}
 	genesis := Block{
 		Height:    0,
 		Version:   VERSION,
 		PrevHash:  [32]byte{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 		TimeStamp: time.Now().Unix(),
-		Data:      data,
+		Transactions:      []transaction.Transaction{tx},
 	}
 
 	//调用pow，实现hash计算和寻找nonce
-	proof := consensus.NewPoW(genesis)
+	proof := consensus.NewPoW(gensis)
 	hash, nonce := proof.FindNonce()
     genesis.Hash = hash
     genesis.Nonce = nonce
@@ -106,12 +110,13 @@ func CreateGenesis(data []byte) Block {
  *生成新区块的功能函数
  */
 func NewBlock(height int64, prev [32]byte, data []byte) Block {
+	tx := transaction.Transaction{}
 	newBlock := Block{
 		Height:    height + 1,
 		Version:   VERSION,
 		PrevHash:  prev,
 		TimeStamp: time.Now().Unix(),
-		Data:      data,
+		Transactions:      []transaction.Transaction{tx},
 	}
 
 	proof := consensus.NewPoW(newBlock)
