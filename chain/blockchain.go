@@ -3,6 +3,7 @@ package chain
 import (
 	"errors"
 	"github.com/bolt-master"
+	"math/big"
 )
 
 const BLOCKS = "blocks"
@@ -19,8 +20,24 @@ type BlockChain struct {
 }
 
 func CreateChain(db *bolt.DB) BlockChain {
+	var lastBlock Block
+	db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(BLOCKS))
+		if bucket == nil {
+			bucket, _ = tx.CreateBucket([]byte(BLOCKS))
+		}
+		lastHash := bucket.Get([]byte(LASTHASH))
+		if len(lastHash) <=  0 {
+			return nil
+		}
+		lastBlockBytes := bucket.Get(lastHash)
+		lastBlock, _ = Deserialize(lastBlockBytes)
+		return nil
+	})
 	return BlockChain{
-		DB: db,
+		DB:                db,
+		LastBlock:         lastBlock,
+		IteratorBlockHash: lastBlock.Hash,
 	}
 }
 
@@ -28,6 +45,13 @@ func CreateChain(db *bolt.DB) BlockChain {
  *创建一个区块链对象，包含一个创世区块
  */
 func (chain *BlockChain) CreateGensis(data []byte) error {
+	hashBig := new(big.Int)
+	hashBig.SetBytes(chain.LastBlock.Hash[:])
+	if hashBig.Cmp(big.NewInt(0)) == 1 {
+		//最新区块哈希有值，则说明区块文件当中创世区块已存在
+		return nil
+	}
+
 	var err error
 	//gensis持久化到db中去
 	engine := chain.DB
@@ -54,13 +78,7 @@ func (chain *BlockChain) CreateGensis(data []byte) error {
 			//把gensis赋值给chain.LastBlock
 			chain.LastBlock = gensis
 			chain.IteratorBlockHash = gensis.Hash
-		}else {
-			//从文件中读取出最新的区块并赋值给chain中的lastblock
-			lastHash := bucket.Get([]byte(LASTHASH))
-			lastBlockBytes := bucket.Get(lastHash)
-			//把反序列化后的最新的区块赋值给chain中的lastblock
-			chain.LastBlock, err = Deserialize(lastBlockBytes)
-            chain.IteratorBlockHash = chain.LastBlock.Hash
+			//fmt.Println("已成功创建创世区块，并写入文件中")
 		}
 		return nil
 	})
