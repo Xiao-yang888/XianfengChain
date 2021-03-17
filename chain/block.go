@@ -3,9 +3,7 @@ package chain
 import (
 	"XianfengChain04/consensus"
 	"XianfengChain04/transaction"
-	"XianfengChain04/utils"
 	"bytes"
-	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
 	"time"
@@ -29,6 +27,10 @@ type Block struct {
 	Transactions []transaction.Transaction
 }
 
+func (block Block) GetTransaction() []transaction.Transaction {
+	panic("implement me")
+}
+
 func (block Block) GetHeight() int64 {
 	return block.Height
 }
@@ -48,19 +50,20 @@ func (block Block) GetPrevHash() [32]byte {
 func (block Block) GetTransactions() []transaction.Transaction {
 	return block.Transactions
 }
+
 /**
  *计算区块的hash值并进行赋值
  */
-func (block *Block) CalculateBlockHash()  {
-	heightByte, _ := utils.Int2Byte(block.Height)
-	versionByte, _ := utils.Int2Byte(block.Version)
-	timeByte, _ := utils.Int2Byte(block.TimeStamp)
-	nonceByte, _ := utils.Int2Byte(block.Nonce)
-
-	blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Transactions}, []byte{})
-    //为区块的hash字段赋值
-	block.Hash = sha256.Sum256(blockByte)
-}
+//func (block *Block) CalculateBlockHash()  {
+//	heightByte, _ := utils.Int2Byte(block.Height)
+//	versionByte, _ := utils.Int2Byte(block.Version)
+//	timeByte, _ := utils.Int2Byte(block.TimeStamp)
+//	nonceByte, _ := utils.Int2Byte(block.Nonce)
+//
+//	blockByte := bytes.Join([] []byte{heightByte, versionByte, block.PrevHash[:], timeByte, nonceByte, block.Transactions}, []byte{})
+//    //为区块的hash字段赋值
+//	block.Hash = sha256.Sum256(blockByte)
+//}
 
 /**
  *区块的序列化方法
@@ -86,19 +89,19 @@ func Deserialize(data []byte) (Block, error) {
 /**
  *生成创世区块的函数
  */
-func CreateGenesis(data []byte) Block {
+func CreateGenesis(txs []transaction.Transaction) Block {
 	fmt.Println("创建创世区块数据并未存储到交易中")
-	tx := transaction.Transaction{}
+
 	genesis := Block{
-		Height:    0,
-		Version:   VERSION,
-		PrevHash:  [32]byte{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-		TimeStamp: time.Now().Unix(),
-		Transactions:      []transaction.Transaction{tx},
+		Height:            0,
+		Version:           VERSION,
+		PrevHash:          [32]byte{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+		TimeStamp:         time.Now().Unix(),
+		Transactions:      txs,
 	}
 
 	//调用pow，实现hash计算和寻找nonce
-	proof := consensus.NewPoW(gensis)
+	proof := consensus.NewPoW(genesis)
 	hash, nonce := proof.FindNonce()
     genesis.Hash = hash
     genesis.Nonce = nonce
@@ -109,19 +112,19 @@ func CreateGenesis(data []byte) Block {
 /**
  *生成新区块的功能函数
  */
-func NewBlock(height int64, prev [32]byte, data []byte) Block {
-	tx := transaction.Transaction{}
+func NewBlock(height int64, prev [32]byte, txs []transaction.Transaction) Block {
 	newBlock := Block{
-		Height:    height + 1,
-		Version:   VERSION,
-		PrevHash:  prev,
-		TimeStamp: time.Now().Unix(),
-		Transactions:      []transaction.Transaction{tx},
+		Height:            height + 1,
+		Version:           VERSION,
+		PrevHash:          prev,
+		TimeStamp:         time.Now().Unix(),
+		Transactions:      txs,
 	}
 
 	proof := consensus.NewPoW(newBlock)
 	hash, nonce := proof.FindNonce()
 	newBlock.Hash = hash
 	newBlock.Nonce = nonce
+
 	return newBlock
 }

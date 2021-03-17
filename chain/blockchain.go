@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"XianfengChain04/transaction"
 	"errors"
 	"github.com/bolt-master"
 	"math/big"
@@ -44,7 +45,7 @@ func CreateChain(db *bolt.DB) BlockChain {
 /**
  *创建一个区块链对象，包含一个创世区块
  */
-func (chain *BlockChain) CreateGensis(data []byte) error {
+func (chain *BlockChain) CreateGensis(txs []transaction.Transaction) error {
 	hashBig := new(big.Int)
 	hashBig.SetBytes(chain.LastBlock.Hash[:])
 	if hashBig.Cmp(big.NewInt(0)) == 1 {
@@ -67,7 +68,7 @@ func (chain *BlockChain) CreateGensis(data []byte) error {
 		//先查看
 		lasthash := bucket.Get([]byte(LASTHASH))
 		if len(lasthash) == 0 {
-			gensis := CreateGenesis(data)
+			gensis := CreateGenesis(txs)
 			genSerBytes, _ := gensis.Serialize()
 			//bucket已经存在
 			//key -> value
@@ -88,13 +89,13 @@ func (chain *BlockChain) CreateGensis(data []byte) error {
 /**
  *生成一个新区块
  */
-func (chain *BlockChain) CreateNewBlock(data []byte) error {
+func (chain *BlockChain) CreateNewBlock(txs []transaction.Transaction) error {
 	//目的：生成一个新区块，并存到bolt.DB文件中去
 	//手段(步骤):
 	//a，从文件中查到当前存储的最新区块数据
 	lastBlock := chain.LastBlock
 	//c，根据获取的最新区块生成一个新区块
-	newBlock := NewBlock(lastBlock.Height, lastBlock.Hash, data)
+	newBlock := NewBlock(lastBlock.Height, lastBlock.Hash, txs)
 	//d，将最新区块序列化，得到序列化数据
 	var err error
 	newBlockSerBytes, err := newBlock.Serialize()
@@ -206,4 +207,86 @@ func (chain *BlockChain) Next() Block {
 		return nil
 	})
 	return iteratorBlock
+}
+
+/**
+ *该方法用于查询出指定地址的UTXO集合并返回
+ */
+func (chain *BlockChain) SerchUTXOs(addr string) ([]transaction.UTXO) {
+	//花费记录的容器
+	spend := make([]transaction.TxInput, 0)
+	//收入记录的容器
+	inCome := make([]transaction.UTXO, 0)
+	//迭代遍历每一个区块
+	for chain.HasNext() {
+		block := chain.Next()
+		//遍历区块中的交易
+		for _, tx := range block.Transactions {
+			//a、遍历每个交易的交易输入
+			for _, input := range tx.Inputs {
+				//找到了花费记录
+				if string(input.ScritpSig) != addr {
+					continue
+				}
+				spend = append(spend, input)
+			}
+			//b、遍历每个交易的交易输出:收入
+			for index, output := range tx.Outputs {
+				if string(output.ScriptPub) != addr {
+					continue
+				}
+				utxo := transaction.UTXO{
+					TxId:     tx.TxHash,
+					Vout:     index,
+					TxOutPut: output,
+				}
+				inCome = append(inCome, utxo)
+			}
+		}
+	}
+	//遍历收入集合和花费集合，把已花的剔除，找出为花费的记录
+	utxos := make([]transaction.UTXO, 0)
+	var isComeSpent bool
+	for _, come := range inCome {
+		isComeSpent = false
+		for _, spen := range spend {
+			if come.TxId == spen.TxId && come.Vout == spen.Vout {
+				//说明该笔收入已被花费
+				isComeSpent = true
+				break
+			}
+		}
+		if !isComeSpent {//当前遍历到的come没有被消费
+			utxos = append(utxos, come)
+		}
+	}
+	return utxos
+}
+
+/**
+ *定义区块链的发送交易的功能
+ */
+func (chain *BlockChain) SendTransaction(from string, to string, amount float64) (error) {
+	//先把from的可花费的utxos找出来
+	utxos := chain.SerchUTXOs(from)
+	//判断当前所有的utxo的可花费的总额是否比转账数额要大
+	var totaBalance float64
+	for _, utxo := range utxos{
+		totaBalance += utxo.Value
+	}
+	if totaBalance < amount {
+		return errors.New("余额不足，赶紧去搬砖挣钱")
+	}
+
+	//可花费的钱总额比要花费的钱数额大，才构建教义
+
+	newTx, err := transaction.CreateNewTransaction(from, to, amount)
+	if err != nil {
+		return err
+	}
+	err = chain.CreateNewBlock([]transaction.Transaction{*newTx})
+	if err != nil {
+		return err
+	}
+	return nil
 }

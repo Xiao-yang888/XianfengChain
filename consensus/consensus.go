@@ -19,6 +19,7 @@ type BlockInterface interface {
 	GetPrevHash()  [32]byte
 	GetTransaction()      []transaction.Transaction
 }
+
 func NewPoW(block BlockInterface) Consensus {
 	init := big.NewInt(1)
 	init.Lsh(init, 255 - DIFFICULTY)

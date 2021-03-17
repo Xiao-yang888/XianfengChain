@@ -2,6 +2,7 @@ package client
 
 import (
 	"XianfengChain04/chain"
+	"XianfengChain04/transaction"
 	"flag"
 	"fmt"
 	"math/big"
@@ -30,8 +31,8 @@ func (cmd *CmdClient) Run() {
 	switch os.Args[1] {
 	case GENERATEGENSIS:
 		cmd.GenerateGensis()
-	case CREATEBLOCK:
-		cmd.CreateBlock()
+	case SENDTRANSACTION:
+		cmd.SendTransaction()
 	case GETLASTBLOCK:
 		cmd.GetLastBlock()
 	case GETALLBLOKCS:
@@ -52,11 +53,11 @@ func (cmd *CmdClient) GenerateGensis() {
 	//命令参数集合
 	generetesis := flag.NewFlagSet(GENERATEGENSIS, flag.ExitOnError)
 	//解析参数
-	var gensis string
-	generetesis.StringVar(&gensis,"gensis", "", "创世区块的数据")
+	var addr string
+	generetesis.StringVar(&addr,"address", "", "用户指定的矿工的地址")
 	generetesis.Parse(os.Args[2:])
 
-	fmt.Println("用户输入的自定义创世区块数据：", gensis)
+	fmt.Println("用户输入的自定义创世区块数据：", addr)
 	blockChain := cmd.Chain
 	//1，先判断blockchain中是否已存在创世区块
 	hashBig := new(big.Int)
@@ -66,16 +67,27 @@ func (cmd *CmdClient) GenerateGensis() {
 		return
 	}
 	//2，调用方法实现创世区块的操作
-	blockChain.CreateGensis([]byte(gensis))
+    coinbase, err := transaction.CreateCoinBase(addr)
+    if err != nil {
+    	fmt.Println("抱歉，创建coinbase交易遇到错误，请重试！")
+		return
+	}
+
+	blockChain.CreateGensis([]transaction.Transaction{*coinbase})
 	fmt.Println("已成功创建创世区块，并保存到文件中")
 }
 
-func (cmd *CmdClient) CreateBlock() {
-	createBlock := flag.NewFlagSet(CREATEBLOCK, flag.ExitOnError)
-	data := createBlock.String("data", "", "新建区块的自定义数据")
+/**
+ *用户发起交易
+ */
+func (cmd *CmdClient) SendTransaction() {
+	createBlock := flag.NewFlagSet(SENDTRANSACTION, flag.ExitOnError)
+	from := createBlock.String("from", "", "交易发起人")
+    to := createBlock.String("to", "", "交易接受者地址")
+    amount := createBlock.Float64("amount", 0, "转账的数量")
 
-	if len(os.Args[2:]) > 2 {
-		fmt.Println("CREATEBLOCK命令只支持data一个参数，请重试")
+	if len(os.Args[2:]) > 6 {
+		fmt.Println("SENDTRANSACTION命令只支持三个参数和参数值，请重试")
 		return
 	}
 
@@ -89,14 +101,13 @@ func (cmd *CmdClient) CreateBlock() {
 		fmt.Println("That not a gensis block in blockchain, please use go run main.go generategensis command to create a gensis block first.")
 		return
 	}
-	//生成一个新的区块，存到文件中
-	blockChain := cmd.Chain
-	err := blockChain.CreateNewBlock([]byte(*data))
+
+	err := cmd.Chain.SendTransaction(*from, *to, *amount)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("抱歉，发送交易出现错误:", err.Error())
 		return
 	}
-	fmt.Println("新区块创建成功，并成功写入文件")
+	fmt.Println("交易发送成功")
 }
 
 func (cmd *CmdClient) GetLastBlock() {
