@@ -26,9 +26,6 @@ type Block struct {
 	Transactions []transaction.Transaction
 }
 
-func (block Block) GetTransaction() []transaction.Transaction {
-	panic("implement me")
-}
 
 func (block Block) GetHeight() int64 {
 	return block.Height
@@ -46,7 +43,7 @@ func (block Block) GetPrevHash() [32]byte {
 	return block.PrevHash
 }
 
-func (block Block) GetTransactions() []transaction.Transaction {
+func (block Block) GetTransaction() []transaction.Transaction {
 	return block.Transactions
 }
 

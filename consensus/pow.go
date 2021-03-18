@@ -72,7 +72,7 @@ func CalculateHash(block BlockInterface, nonce int64) [32]byte {
 		timeByte,
 		nonceByte,
 		txsBytes,
-		}, []byte{})
+	}, []byte{})
 	//计算系统的hash
 	hash := sha256.Sum256(blockByte)
 	return hash
