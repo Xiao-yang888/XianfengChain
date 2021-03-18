@@ -157,7 +157,18 @@ func (cmd *CmdClient) GetAllBlocks() {
 	}
 	fmt.Println("恭喜，查询到所有区块数据")
 	for _, block := range blocks {
-		fmt.Printf("区块高度：%d，区块哈希：%x，区块交易：%s\n", block.Height, block.Hash, block.Transactions)
+		fmt.Printf("区块高度：%d，区块哈希：%x\n", block.Height, block.Hash)
+		fmt.Print("区块中国的交易信息：\n")
+		for index, tx := range block.Transactions {
+			fmt.Printf("     第%d笔交易，交易hash：%x\n", index, tx.TxHash)
+		    for inputIndex, _ := range tx.Inputs {
+		    	fmt.Printf("           第%d笔交易输入\n", inputIndex)
+			}
+			for outputIndex, output := range tx.Outputs {
+				fmt.Printf("      第%d笔交易输出，面额为：%f\n", outputIndex, output.Value)
+			}
+		}
+		fmt.Println()
 	}
 }
 

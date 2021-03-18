@@ -53,6 +53,7 @@ func CreateNewTransaction(utxos []UTXO, from string, to string, amount float64) 
 			Vout:      utxo.Vout,
 			ScritpSig: utxo.ScriptPub,
 		}
+		inputAmount += utxo.Value
 		//把构建好的input存入到交易输入容器中
 		inputs = append(inputs, input)
 	}
@@ -67,6 +68,7 @@ func CreateNewTransaction(utxos []UTXO, from string, to string, amount float64) 
 	outputs = append(outputs, outpus0)//把第一个交易输出放入到专门存交易输出的容器中
 
 	//判断是否需要找零，如果需要找零，则需要构建一个新的找零输出
+
     if inputAmount - amount > 0 {
     	output1 := TxOutPut{
 			Value:     inputAmount - amount,

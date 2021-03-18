@@ -3,6 +3,7 @@ package chain
 import (
 	"XianfengChain04/transaction"
 	"errors"
+	"fmt"
 	"github.com/bolt-master"
 	"math/big"
 )
@@ -292,8 +293,10 @@ func (chain *BlockChain) GetUTXOsWithBalance(addr string) ([]transaction.UTXO, f
 	utxos := chain.SerchUTXOs(addr)
 	var totaBalance float64
 	for _, utxo := range utxos{
+		fmt.Println(utxo)
 		totaBalance += utxo.Value
 	}
+
 	return utxos, totaBalance
 }
 
