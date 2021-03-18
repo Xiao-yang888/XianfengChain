@@ -2,7 +2,6 @@ package client
 
 import (
 	"XianfengChain04/chain"
-	"XianfengChain04/transaction"
 	"flag"
 	"fmt"
 	"math/big"
@@ -33,6 +32,8 @@ func (cmd *CmdClient) Run() {
 		cmd.GenerateGensis()
 	case SENDTRANSACTION:
 		cmd.SendTransaction()
+	case GETBALANCE:
+		cmd.GetBalance()
 	case GETLASTBLOCK:
 		cmd.GetLastBlock()
 	case GETALLBLOKCS:
@@ -66,15 +67,13 @@ func (cmd *CmdClient) GenerateGensis() {
 		fmt.Println("创世区块已存在，不能重复生成")
 		return
 	}
-	//2，调用方法实现创世区块的操作
-    coinbase, err := transaction.CreateCoinBase(addr)
+
+    err := blockChain.CreateCoinBase(addr)
     if err != nil {
-    	fmt.Println("抱歉，创建coinbase交易遇到错误，请重试！")
+    	fmt.Println("抱歉，创建coinbase交易遇到错误：", err.Error())
 		return
 	}
-
-	blockChain.CreateGensis([]transaction.Transaction{*coinbase})
-	fmt.Println("已成功创建创世区块，并保存到文件中")
+	fmt.Println("恭喜！生成了一笔COINBASE交易，奖励已到账")
 }
 
 /**
@@ -91,8 +90,6 @@ func (cmd *CmdClient) SendTransaction() {
 		return
 	}
 
-	//args := os.Args[2:]
-
 	createBlock.Parse(os.Args[2:])
 	//先判断是否已生成创世区块，如果没有创术区块则提示用户先创创世区块
 	hashBig := new(big.Int)
@@ -108,6 +105,29 @@ func (cmd *CmdClient) SendTransaction() {
 		return
 	}
 	fmt.Println("交易发送成功")
+}
+
+/**
+ *获取地址的余额
+ */
+func (Cmd *CmdClient) GetBalance() {
+	getbalance := flag.NewFlagSet(GETBALANCE, flag.ExitOnError)
+	var addr string
+	getbalance.StringVar(&addr, "address", "", "用户的地址")
+	getbalance.Parse(os.Args[2:])
+
+	blockChain := Cmd.Chain
+	//先判断是否有创世区块
+    hashBig := new(big.Int)
+	hashBig.SetBytes(blockChain.LastBlock.Hash[:])
+    if hashBig.Cmp(big.NewInt(0)) == 0 {//没有创世区块
+    	fmt.Println("抱歉，该网络链暂未存在，无法查询")
+		return
+	}
+
+	//调用余额查询功能
+	balance := blockChain.GetBalance(addr)
+    fmt.Printf("地址%s的余额是：%f\n", addr, balance)
 }
 
 func (cmd *CmdClient) GetLastBlock() {
@@ -158,7 +178,8 @@ func (cmd *CmdClient) Help() {
 	fmt.Println()
 	fmt.Println("AVAILABLE COMMANDS")
 	fmt.Println("    generategensis    use the command can create a gensis block and save to the boltdb file. use the gensis argument to set the custom data.")
-	fmt.Println("    createblock       this command used to create a new block, that can specified a data an argument named data.")
+	fmt.Println("    sendtransaction   this command used to send a new transaction, that can specified a data an argument named data.")
+	fmt.Println("    getbalance        this is a comand that can get the balance of specified address")
 	fmt.Println("    getlastblock      get the lastest block data.")
 	fmt.Println("    getallblock       return all blocks data to user.")
 	fmt.Println("    help              use the command can print usage infomation.")

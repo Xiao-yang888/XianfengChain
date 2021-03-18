@@ -20,6 +20,7 @@ func main() {
     blockChain := chain.CreateChain(db)
     cmdClient := client.CmdClient{blockChain}
 
+
     //cmdClient.Help()
     cmdClient.Run()
 }

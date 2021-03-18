@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 )
 
+const REWARSIXE = 50
+
 /**
  *定义交易的结构体
  */
@@ -22,7 +24,7 @@ type Transaction struct {
  */
 func CreateCoinBase(addr string) (*Transaction, error) {
 	output0 := TxOutPut{
-		Value:     50,
+		Value:     REWARSIXE,
 		ScriptPub: []byte(addr),
 	}
 	coinbase := Transaction{
@@ -40,12 +42,20 @@ func CreateCoinBase(addr string) (*Transaction, error) {
 /**
  *该函数用于构建一笔普通的交易，返回构建好的交易实例
  */
-func CreateNewTransaction(from string, to string, amount float64) (*Transaction, error) {
+func CreateNewTransaction(utxos []UTXO, from string, to string, amount float64) (*Transaction, error) {
 	//1，构建inputs
 	inputs := make([]TxInput, 0)//用于存放交易输入的容器
 	var inputAmount float64//该变量用于记录转账发起者一共付了多少钱
-
-
+    //input -> 交易输入：对某个交易的交易输出UTXO的引用
+    for _, utxo := range utxos {
+    	input := TxInput{
+			TxId:      utxo.TxId,
+			Vout:      utxo.Vout,
+			ScritpSig: utxo.ScriptPub,
+		}
+		//把构建好的input存入到交易输入容器中
+		inputs = append(inputs, input)
+	}
 
 	//2，构建outputs
 	outputs := make([]TxOutPut, 0)//用于存放交易输出的容器

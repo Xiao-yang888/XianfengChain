@@ -5,7 +5,6 @@ import (
 	"XianfengChain04/transaction"
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"time"
 )
 
@@ -90,7 +89,6 @@ func Deserialize(data []byte) (Block, error) {
  *生成创世区块的函数
  */
 func CreateGenesis(txs []transaction.Transaction) Block {
-	fmt.Println("创建创世区块数据并未存储到交易中")
 
 	genesis := Block{
 		Height:            0,

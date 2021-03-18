@@ -43,6 +43,20 @@ func CreateChain(db *bolt.DB) BlockChain {
 }
 
 /**
+ *创建coinbase交易的方法
+ */
+func (chain *BlockChain) CreateCoinBase(addr string) error {
+	//1，创建一笔coinbase交易
+	coinbase, err := transaction.CreateCoinBase(addr)
+	if err != nil {
+		return err
+	}
+	//2，把coinbase交易存到区块中
+	err = chain.CreateGensis([]transaction.Transaction{*coinbase})
+	return err
+}
+
+/**
  *创建一个区块链对象，包含一个创世区块
  */
 func (chain *BlockChain) CreateGensis(txs []transaction.Transaction) error {
@@ -264,23 +278,45 @@ func (chain *BlockChain) SerchUTXOs(addr string) ([]transaction.UTXO) {
 }
 
 /**
- *定义区块链的发送交易的功能
+ *该方法用于实现地址余额的统计
  */
-func (chain *BlockChain) SendTransaction(from string, to string, amount float64) (error) {
-	//先把from的可花费的utxos找出来
-	utxos := chain.SerchUTXOs(from)
-	//判断当前所有的utxo的可花费的总额是否比转账数额要大
+func (chain *BlockChain) GetBalance(addr string) float64 {
+	_, totaBalance := chain.GetUTXOsWithBalance(addr)
+	return totaBalance
+}
+
+/**
+ *该方法用于实现地址余额统计和地址所可以花费的utxo集合
+ */
+func (chain *BlockChain) GetUTXOsWithBalance(addr string) ([]transaction.UTXO, float64) {
+	utxos := chain.SerchUTXOs(addr)
 	var totaBalance float64
 	for _, utxo := range utxos{
 		totaBalance += utxo.Value
 	}
+	return utxos, totaBalance
+}
+
+/**
+ *定义区块链的发送交易的功能
+ */
+func (chain *BlockChain) SendTransaction(from string, to string, amount float64) (error) {
+	utxos, totaBalance := chain.GetUTXOsWithBalance(from)
 	if totaBalance < amount {
 		return errors.New("余额不足，赶紧去搬砖挣钱")
 	}
+	totaBalance = 0
+    var utxoNum int
+	for index, utxo := range utxos {
+		totaBalance += utxo.Value
+		if totaBalance > amount {
+			utxoNum = index
+		    break
+		}
+	}
 
-	//可花费的钱总额比要花费的钱数额大，才构建教义
-
-	newTx, err := transaction.CreateNewTransaction(from, to, amount)
+	//可花费的钱总额比要花费的钱数额大，才构建交易
+	newTx, err := transaction.CreateNewTransaction(utxos[0:utxoNum +1], from, to, amount)
 	if err != nil {
 		return err
 	}
