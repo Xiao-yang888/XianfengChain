@@ -2,6 +2,7 @@ package client
 
 import (
 	"XianfengChain04/chain"
+	"XianfengChain04/utils"
 	"flag"
 	"fmt"
 	"math/big"
@@ -83,14 +84,42 @@ func (cmd *CmdClient) SendTransaction() {
 	createBlock := flag.NewFlagSet(SENDTRANSACTION, flag.ExitOnError)
 	from := createBlock.String("from", "", "交易发起人")
     to := createBlock.String("to", "", "交易接受者地址")
-    amount := createBlock.Float64("amount", 0, "转账的数量")
+    amount := createBlock.String("amount", "", "转账的数量")
 
 	if len(os.Args[2:]) > 6 {
 		fmt.Println("SENDTRANSACTION命令只支持三个参数和参数值，请重试")
 		return
 	}
 
+    fromSlice, err := utils.JSONArray2String(*from)
+    if err != nil {
+    	fmt.Println("抱歉，参数格式不正确，清检查后重试！")
+		return
+    }
+
+    toSlice, err := utils.JSONArray2String(*to)
+    if err != nil {
+		fmt.Println("抱歉，参数格式不正确，清检查后重试！")
+    	return
+	}
+
+    amountSlice, err := utils.JSONArray2Float(*amount)
+    if err != nil {
+		fmt.Println("抱歉，参数格式不正确，清检查后重试！")
+		return
+	}
+
 	createBlock.Parse(os.Args[2:])
+
+    //先看看参数个数是否一样
+    fromLen := len(fromSlice)
+    toLen := len(toSlice)
+    amountLen := len(amountSlice)
+    if fromLen != toLen || fromLen != amountLen || toLen != amountLen {
+    	fmt.Println("参数个数不一致，请检查参数后重试")
+		return
+	}
+
 	//先判断是否已生成创世区块，如果没有创术区块则提示用户先创创世区块
 	hashBig := new(big.Int)
 	hashBig.SetBytes(cmd.Chain.LastBlock.Hash[:])
@@ -99,7 +128,7 @@ func (cmd *CmdClient) SendTransaction() {
 		return
 	}
 
-	err := cmd.Chain.SendTransaction(*from, *to, *amount)
+	err = cmd.Chain.SendTransaction(fromSlice, toSlice, amountSlice)
 	if err != nil {
 		fmt.Println("抱歉，发送交易出现错误:", err.Error())
 		return

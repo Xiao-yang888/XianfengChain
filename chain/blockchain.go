@@ -303,29 +303,35 @@ func (chain *BlockChain) GetUTXOsWithBalance(addr string) ([]transaction.UTXO, f
 /**
  *定义区块链的发送交易的功能
  */
-func (chain *BlockChain) SendTransaction(from string, to string, amount float64) (error) {
-	utxos, totaBalance := chain.GetUTXOsWithBalance(from)
-	if totaBalance < amount {
-		return errors.New("余额不足，赶紧去搬砖挣钱")
-	}
-	totaBalance = 0
-    var utxoNum int
-	for index, utxo := range utxos {
-		totaBalance += utxo.Value
-		if totaBalance > amount {
-			utxoNum = index
-		    break
+func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts []float64) (error) {
+	//遍历
+	for from_index, from := range froms {
+		utxos, totaBalance := chain.GetUTXOsWithBalance(from)
+		if totaBalance < amounts[from_index] {
+			return errors.New("余额不足，赶紧去搬砖挣钱")
 		}
-	}
+		totaBalance = 0
+		var utxoNum int
+		for index, utxo := range utxos {
+			totaBalance += utxo.Value
+			if totaBalance > amounts[from_index] {
+				utxoNum = index
+				break
+			}
+		}
 
-	//可花费的钱总额比要花费的钱数额大，才构建交易
-	newTx, err := transaction.CreateNewTransaction(utxos[0:utxoNum +1], from, to, amount)
-	if err != nil {
-		return err
-	}
-	err = chain.CreateNewBlock([]transaction.Transaction{*newTx})
-	if err != nil {
-		return err
+		//可花费的钱总额比要花费的钱数额大，才构建交易
+		newTx, err := transaction.CreateNewTransaction(utxos[0:utxoNum +1],
+			from,
+			tos[from_index],
+			amounts[from_index])
+		if err != nil {
+			return err
+		}
+		err = chain.CreateNewBlock([]transaction.Transaction{*newTx})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
