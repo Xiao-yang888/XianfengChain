@@ -86,13 +86,16 @@ func (cmd *CmdClient) SendTransaction() {
     to := createBlock.String("to", "", "交易接受者地址")
     amount := createBlock.String("amount", "", "转账的数量")
 
-	if len(os.Args[2:]) > 6 {
+    if len(os.Args[2:]) > 6 {
 		fmt.Println("SENDTRANSACTION命令只支持三个参数和参数值，请重试")
 		return
 	}
 
+	createBlock.Parse(os.Args[2:])
+
     fromSlice, err := utils.JSONArray2String(*from)
     if err != nil {
+    	fmt.Println(err.Error())
     	fmt.Println("抱歉，参数格式不正确，清检查后重试！")
 		return
     }
@@ -109,7 +112,6 @@ func (cmd *CmdClient) SendTransaction() {
 		return
 	}
 
-	createBlock.Parse(os.Args[2:])
 
     //先看看参数个数是否一样
     fromLen := len(fromSlice)
@@ -190,11 +192,11 @@ func (cmd *CmdClient) GetAllBlocks() {
 		fmt.Print("区块中国的交易信息：\n")
 		for index, tx := range block.Transactions {
 			fmt.Printf("     第%d笔交易，交易hash：%x\n", index, tx.TxHash)
-		    for inputIndex, _ := range tx.Inputs {
-		    	fmt.Printf("           第%d笔交易输入\n", inputIndex)
+		    for inputIndex, input := range tx.Inputs {
+		    	fmt.Printf("           第%d笔交易输入,%s花了%x的%d的钱\n", inputIndex, input.ScritpSig, input.TxId, input.Vout)
 			}
 			for outputIndex, output := range tx.Outputs {
-				fmt.Printf("      第%d笔交易输出，面额为：%f\n", outputIndex, output.Value)
+				fmt.Printf("      第%d笔交易输出，%s实现收入%f\n", outputIndex,output.ScriptPub,  output.Value)
 			}
 		}
 		fmt.Println()

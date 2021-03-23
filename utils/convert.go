@@ -40,7 +40,7 @@ func Decode(data []byte, v interface{}) (interface{}, error) {
  */
 func JSONArray2String(array string) ([]string, error) {
 	var stringSlice []string
-	err := json.Unmarshal([]byte(array), stringSlice)
+	err := json.Unmarshal([]byte(array), &stringSlice)
 	return stringSlice, err
 }
 
@@ -49,6 +49,6 @@ func JSONArray2String(array string) ([]string, error) {
  */
 func JSONArray2Float(array string) ([]float64, error) {
 	var  floatSlice []float64
-	err := json.Unmarshal([]byte(array), floatSlice)
+	err := json.Unmarshal([]byte(array), &floatSlice)
 	return floatSlice, err
 }
