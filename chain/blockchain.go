@@ -283,7 +283,7 @@ func (chain *BlockChain) SerchDBUTXOs(addr string) ([]transaction.UTXO) {
  *该方法用于实现地址余额的统计
  */
 func (chain *BlockChain) GetBalance(addr string) float64 {
-	_, totaBalance := chain.GetUTXOsWithBalance(addr)
+	_, totaBalance := chain.GetUTXOsWithBalance(addr, []transaction.Transaction{})
 	return totaBalance
 }
 
