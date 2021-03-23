@@ -16,6 +16,9 @@ type CmdClient struct {
     Chain chain.BlockChain
 }
 
+/**
+ *定义新的方法，用于生成新的地址
+ */
 func (cmd *CmdClient) GetNewAddress() {
 	getNewAddress := flag.NewFlagSet(GETNEWADDRESS, flag.ExitOnError)
 	getNewAddress.Parse(os.Args[2:])
@@ -23,7 +26,7 @@ func (cmd *CmdClient) GetNewAddress() {
 		fmt.Println("抱歉，生成新地址功能无法解析参数，请重试")
 		return
 	}
-	address := cmd.Chain.getNewAddress()
+	address := cmd.Chain.GetNewAddress()
 	fmt.Println("生成新的地址：", address)
 }
 
