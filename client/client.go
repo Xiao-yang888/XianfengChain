@@ -16,6 +16,17 @@ type CmdClient struct {
     Chain chain.BlockChain
 }
 
+func (cmd *CmdClient) GetNewAddress() {
+	getNewAddress := flag.NewFlagSet(GETNEWADDRESS, flag.ExitOnError)
+	getNewAddress.Parse(os.Args[2:])
+	if len(os.Args[2:]) > 0 {
+		fmt.Println("抱歉，生成新地址功能无法解析参数，请重试")
+		return
+	}
+	address := cmd.Chain.getNewAddress()
+	fmt.Println("生成新的地址：", address)
+}
+
 /**
  *client运行方法
  */
@@ -39,6 +50,8 @@ func (cmd *CmdClient) Run() {
 		cmd.GetLastBlock()
 	case GETALLBLOKCS:
 		cmd.GetAllBlocks()
+	case GETNEWADDRESS:
+		cmd.GetNewAddress()
 	case HELP:
 		cmd.Help()
 	default:
@@ -221,9 +234,10 @@ func (cmd *CmdClient) Help() {
 	fmt.Println("AVAILABLE COMMANDS")
 	fmt.Println("    generategensis    use the command can create a gensis block and save to the boltdb file. use the gensis argument to set the custom data.")
 	fmt.Println("    sendtransaction   this command used to send a new transaction, that can specified a data an argument named data.")
-	fmt.Println("    getbalance        this is a comand that can get the balance of specified address")
+	fmt.Println("    getbalance        this is a comand that can get the balance of specified address.")
 	fmt.Println("    getlastblock      get the lastest block data.")
 	fmt.Println("    getallblock       return all blocks data to user.")
+	fmt.Println("    getnewaddress     this command use to create a new address by bition algorithm.")
 	fmt.Println("    help              use the command can print usage infomation.")
 	fmt.Println()
 	fmt.Println("Use go run main.go help [command] for more information about a command.")

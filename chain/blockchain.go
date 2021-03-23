@@ -1,10 +1,10 @@
 package chain
 
 import (
+	"XianfengChain04/chaincrypto"
 	"XianfengChain04/transaction"
 	"errors"
 	"fmt"
-	"github.com/astaxie/beego/logs/alils"
 	"github.com/bolt-master"
 	"math/big"
 )
@@ -378,4 +378,11 @@ func (chain *BlockChain) SendTransaction(froms []string, txs []string, amounts [
 		return err
 	}
 	return nil
+}
+
+/**
+ *生成比特币地址的功能
+ */
+func (chain *BlockChain) GetNewAddress() string {
+	return chaincrypto.NewAddress()
 }
