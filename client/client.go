@@ -26,8 +26,11 @@ func (cmd *CmdClient) GetNewAddress() {
 		fmt.Println("抱歉，生成新地址功能无法解析参数，请重试")
 		return
 	}
-	address := cmd.Chain.GetNewAddress()
-	fmt.Println("生成新的地址：", address)
+	_, err := cmd.Chain.GetNewAddress()
+	if err != nil {
+		fmt.Println("生成新地址时遇到错误，请重试", err.Error())
+		return
+	}
 }
 
 /**
@@ -173,7 +176,11 @@ func (Cmd *CmdClient) GetBalance() {
 	}
 
 	//调用余额查询功能
-	balance := blockChain.GetBalance(addr)
+	balance, err := blockChain.GetBalance(addr)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
     fmt.Printf("地址%s的余额是：%f\n", addr, balance)
 }
 

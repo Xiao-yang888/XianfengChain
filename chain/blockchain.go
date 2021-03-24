@@ -48,12 +48,18 @@ func CreateChain(db *bolt.DB) BlockChain {
  *创建coinbase交易的方法
  */
 func (chain *BlockChain) CreateCoinBase(addr string) error {
-	//1，创建一笔coinbase交易
+	//1，对用户传入的addr进行有效性检查
+    isAddrValid := chaincrypto.CheckAddress(addr)
+    if !isAddrValid{
+    	return errors.New("抱歉，地址不符合规范，请检查后重试")
+	}
+
+	//2，创建一笔coinbase交易
 	coinbase, err := transaction.CreateCoinBase(addr)
 	if err != nil {
 		return err
 	}
-	//2，把coinbase交易存到区块中
+	//3，把coinbase交易存到区块中
 	err = chain.CreateGensis([]transaction.Transaction{*coinbase})
 	return err
 }
@@ -282,9 +288,16 @@ func (chain *BlockChain) SerchDBUTXOs(addr string) ([]transaction.UTXO) {
 /**
  *该方法用于实现地址余额的统计
  */
-func (chain *BlockChain) GetBalance(addr string) float64 {
+func (chain *BlockChain) GetBalance(addr string) (float64, error) {
+	//1，检查地址的合法性
+	isAddrValid := chaincrypto.CheckAddress(addr)
+	if !isAddrValid {
+		return 0, errors.New("地址不符合规范，请检查后重试")
+	}
+
+	//2，获取地址的余额
 	_, totaBalance := chain.GetUTXOsWithBalance(addr, []transaction.Transaction{})
-	return totaBalance
+	return totaBalance, nil
 }
 
 /**
@@ -344,10 +357,18 @@ func (chain BlockChain) GetUTXOsWithBalance(addr string, txs []transaction.Trans
 /**
  *定义区块链的发送交易的功能
  */
-func (chain *BlockChain) SendTransaction(froms []string, txs []string, amounts []float64) (error) {
-	//遍历
-	newTxs := make([]transaction.Transaction, 0)
+func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts []float64) (error) {
+	//对所有的from和to进行合法性检查
+	for i := 0; i < len(froms); i ++ {
+		isFromValid := chaincrypto.CheckAddress(froms[i])
+		isToValid := chaincrypto.CheckAddress(tos[i])
+		if !isFromValid || !isToValid {
+			return errors.New("地址不符合规范，请检查后重试")
+		}
+	}
 
+	newTxs := make([]transaction.Transaction, 0)
+	//遍历
 	for from_index, from := range froms {
 		utxos, totaBalance := chain.GetUTXOsWithBalance(from,newTxs)
 		if totaBalance < amounts[from_index] {
@@ -366,7 +387,7 @@ func (chain *BlockChain) SendTransaction(froms []string, txs []string, amounts [
 		//可花费的钱总额比要花费的钱数额大，才构建交易
 		newTx, err := transaction.CreateNewTransaction(utxos[0:utxoNum +1],
 			from,
-			txs[from_index],
+			tos[from_index],
 			amounts[from_index])
 		if err != nil {
 			return err
@@ -383,6 +404,6 @@ func (chain *BlockChain) SendTransaction(froms []string, txs []string, amounts [
 /**
  *生成比特币地址的功能
  */
-func (chain *BlockChain) GetNewAddress() string {
+func (chain *BlockChain) GetNewAddress() (string, string) {
 	return chaincrypto.NewAddress()
 }
