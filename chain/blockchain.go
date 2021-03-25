@@ -1,8 +1,9 @@
 package chain
 
 import (
-	"XianfengChain04/chaincrypto"
 	"XianfengChain04/transaction"
+	"XianfengChain04/wallet"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"github.com/bolt-master"
@@ -17,12 +18,13 @@ const LASTHASH = "lasthash"
  */
 type BlockChain struct {
 	//Blocks []Block
-	DB *bolt.DB
-	LastBlock Block//最新最后的区块
-	IteratorBlockHash [32]byte//表示当前迭代到了哪个区块，该变量用于记录迭代到的区块哈希
+	DB                 *bolt.DB
+	LastBlock          Block//最新最后的区块
+	IteratorBlockHash  [32]byte//表示当前迭代到了哪个区块，该变量用于记录迭代到的区块哈希
+    Wallet             wallet.Wallet//引入wallet字段作为 blockchain的属性
 }
 
-func CreateChain(db *bolt.DB) BlockChain {
+func CreateChain(db *bolt.DB) (*BlockChain, error) {
 	var lastBlock Block
 	db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(BLOCKS))
@@ -37,11 +39,20 @@ func CreateChain(db *bolt.DB) BlockChain {
 		lastBlock, _ = Deserialize(lastBlockBytes)
 		return nil
 	})
-	return BlockChain{
+
+	//创建或者加载wallet结构体对象
+    wallet, err := wallet.LoadAddrAndKeyPairsFromDB(db)
+    if err != nil {
+    	return nil, err
+	}
+
+	blockChain := BlockChain{
 		DB:                db,
 		LastBlock:         lastBlock,
 		IteratorBlockHash: lastBlock.Hash,
+		Wallet:            *wallet,
 	}
+	return &blockChain, nil
 }
 
 /**
@@ -49,7 +60,7 @@ func CreateChain(db *bolt.DB) BlockChain {
  */
 func (chain *BlockChain) CreateCoinBase(addr string) error {
 	//1，对用户传入的addr进行有效性检查
-    isAddrValid := chaincrypto.CheckAddress(addr)
+    isAddrValid := chain.Wallet.CheckAddress(addr)
     if !isAddrValid{
     	return errors.New("抱歉，地址不符合规范，请检查后重试")
 	}
@@ -290,7 +301,7 @@ func (chain *BlockChain) SerchDBUTXOs(addr string) ([]transaction.UTXO) {
  */
 func (chain *BlockChain) GetBalance(addr string) (float64, error) {
 	//1，检查地址的合法性
-	isAddrValid := chaincrypto.CheckAddress(addr)
+	isAddrValid := chain.Wallet.CheckAddress(addr)
 	if !isAddrValid {
 		return 0, errors.New("地址不符合规范，请检查后重试")
 	}
@@ -360,8 +371,8 @@ func (chain BlockChain) GetUTXOsWithBalance(addr string, txs []transaction.Trans
 func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts []float64) (error) {
 	//对所有的from和to进行合法性检查
 	for i := 0; i < len(froms); i ++ {
-		isFromValid := chaincrypto.CheckAddress(froms[i])
-		isToValid := chaincrypto.CheckAddress(tos[i])
+		isFromValid := chain.Wallet.CheckAddress(froms[i])
+		isToValid := chain.Wallet.CheckAddress(tos[i])
 		if !isFromValid || !isToValid {
 			return errors.New("地址不符合规范，请检查后重试")
 		}
@@ -392,6 +403,9 @@ func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts [
 		if err != nil {
 			return err
 		}
+		//对构建的交易newTx进行签名
+
+
 		newTxs = append(newTxs, *newTx)
 	}
 	err := chain.CreateNewBlock(newTxs)
@@ -404,6 +418,43 @@ func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts [
 /**
  *生成比特币地址的功能
  */
-func (chain *BlockChain) GetNewAddress() (string, string) {
-	return chaincrypto.NewAddress()
+func (chain *BlockChain) GetNewAddress() (string, error) {
+	return chain.Wallet.NewAddress()
+}
+
+/**
+ *获取钱包中的地址列表
+ */
+func (chain *BlockChain) GetAddressList() ([]string, error) {
+	if chain.Wallet.Address == nil {
+		return nil, errors.New("暂无地址")
+	}
+
+	addList := make([]string, 0)
+	for add, _ := range chain.Wallet.Address {
+		addList = append(addList, add)
+	}
+	return addList, nil
+}
+
+/**
+ *该方法用于导出某个特定地址的私钥
+ */
+func (chain *BlockChain) DumpPrivkey(addr string) (*ecdsa.PrivateKey, error) {
+    //1，地址规范性检查
+	isAddrValid := chain.Wallet.CheckAddress(addr)
+	if !isAddrValid {
+		return nil, errors.New("地址不符合规范，请重试")
+	}
+	//2，钱包为空
+	if chain.Wallet.Address == nil {
+    	return nil, errors.New("当前钱包为找到对应地址的私钥")
+	}
+	//3，到wallet中找addr的对应的keypair
+	keyPair := chain.Wallet.Address[addr]
+	if keyPair == nil {
+		return nil, errors.New("当前钱包未找到对应的地址的私钥")
+	}
+	//4，找到了具体结果，将私钥返回
+	return keyPair.Priv, nil
 }

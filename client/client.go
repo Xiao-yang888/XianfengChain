@@ -17,6 +17,27 @@ type CmdClient struct {
 }
 
 /**
+ *该方法用于获取当前节点已经生成的地址列表
+ */
+func (cmd *CmdClient) ListAddress() {
+	listAddress := flag.NewFlagSet(LISTADDRESS, flag.ExitOnError)
+	listAddress.Parse(os.Args[2:])
+    if len(os.Args[2:])	> 0 {
+    	fmt.Println("无法解析参数，请检查后重试")
+		return
+	}
+	addList, err := cmd.Chain.GetAddressList()
+    if err != nil {
+    	fmt.Println(err.Error())
+		return
+	}
+	fmt.Println("获取地址列表成功，地址信息如下：")
+	for index, add := range addList {
+		fmt.Printf("[%d]:%s\n", index + 1, add)
+	}
+}
+
+/**
  *定义新的方法，用于生成新的地址
  */
 func (cmd *CmdClient) GetNewAddress() {
@@ -26,11 +47,31 @@ func (cmd *CmdClient) GetNewAddress() {
 		fmt.Println("抱歉，生成新地址功能无法解析参数，请重试")
 		return
 	}
-	_, err := cmd.Chain.GetNewAddress()
+	address, err := cmd.Chain.GetNewAddress()
 	if err != nil {
 		fmt.Println("生成新地址时遇到错误，请重试", err.Error())
 		return
 	}
+	fmt.Println("生成新的地址：", address)
+}
+
+/**
+ *该方法用于导出某个特定地址的私钥信息
+ */
+func (cmd *CmdClient) DumpPrivkey() {
+	dumpPrivkey := flag.NewFlagSet(DUMPPRIVKEY, flag.ExitOnError)
+	address := dumpPrivkey.String("address", "", "要导出的私钥的地址")
+	dumpPrivkey.Parse(os.Args[2:])
+	if len(os.Args[2:]) > 2 {
+		fmt.Println("无法解析输入参数，请检查后重试")
+		return
+	}
+	pri, err := cmd.Chain.DumpPrivkey(*address)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Printf("私钥是：%x\n", pri.D.Bytes())
 }
 
 /**
@@ -58,6 +99,10 @@ func (cmd *CmdClient) Run() {
 		cmd.GetAllBlocks()
 	case GETNEWADDRESS:
 		cmd.GetNewAddress()
+	case LISTADDRESS:
+		cmd.ListAddress()//获取所有的地址信息列表
+	case DUMPPRIVKEY:
+		cmd.DumpPrivkey()
 	case HELP:
 		cmd.Help()
 	default:

@@ -31,7 +31,7 @@ func Encoder(v interface{}) ([]byte, error) {
 /**
  *gob反编码
  */
-func Decode(data []byte, v interface{}) (interface{}, error) {
+func Decodes(data []byte, v interface{}) (interface{}, error) {
 	decoder := gob.NewDecoder(bytes.NewReader(data))
     err := decoder.Decode(v)
     return v, err

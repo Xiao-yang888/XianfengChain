@@ -3,6 +3,7 @@ package main
 import (
 	"XianfengChain04/chain"
 	"XianfengChain04/client"
+	"fmt"
 	"github.com/bolt-master"
 )
 
@@ -17,9 +18,12 @@ func main() {
 	}
     defer db.Close()//xxx.db.lock
 
-    blockChain := chain.CreateChain(db)
-    cmdClient := client.CmdClient{blockChain}
-
+    blockChain, err := chain.CreateChain(db)
+    if err != nil {
+    	fmt.Println(err.Error())
+		return
+	}
+    cmdClient := client.CmdClient{*blockChain}
 
     //cmdClient.Help()
     cmdClient.Run()
