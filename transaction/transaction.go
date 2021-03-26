@@ -23,10 +23,9 @@ type Transaction struct {
  *该函数用于定义一个coinbase交易，并返回该交易结构体
  */
 func CreateCoinBase(addr string) (*Transaction, error) {
-	output0 := TxOutPut{
-		Value:     REWARSIXE,
-		ScriptPub: []byte(addr),
-	}
+
+	output0 := LockMoney2PubkHash(REWARSIXE, addr)
+
 	coinbase := Transaction{
 		Outputs: []TxOutPut{output0},
 	}
@@ -42,17 +41,14 @@ func CreateCoinBase(addr string) (*Transaction, error) {
 /**
  *该函数用于构建一笔普通的交易，返回构建好的交易实例
  */
-func CreateNewTransaction(utxos []UTXO, from string, to string, amount float64) (*Transaction, error) {
+func CreateNewTransaction(utxos []UTXO, from string,pubk []byte, to string, amount float64) (*Transaction, error) {
 	//1，构建inputs
 	inputs := make([]TxInput, 0)//用于存放交易输入的容器
 	var inputAmount float64//该变量用于记录转账发起者一共付了多少钱
     //input -> 交易输入：对某个交易的交易输出UTXO的引用
     for _, utxo := range utxos {
-    	input := TxInput{
-			TxId:      utxo.TxId,
-			Vout:      utxo.Vout,
-			ScritpSig: utxo.ScriptPub,
-		}
+    	//1，根据from获取到对应的原始公钥
+    	input := NewTxInput(utxo.TxId, utxo.Vout, pubk)
 		inputAmount += utxo.Value
 		//把构建好的input存入到交易输入容器中
 		inputs = append(inputs, input)
@@ -61,19 +57,14 @@ func CreateNewTransaction(utxos []UTXO, from string, to string, amount float64) 
 	//2，构建outputs
 	outputs := make([]TxOutPut, 0)//用于存放交易输出的容器
 	//构建转账接受者的交易输出
-	outpus0 := TxOutPut{
-		Value:     amount,
-		ScriptPub: []byte(to),
-	}
+	outpus0 := LockMoney2PubkHash(amount, to)
+
 	outputs = append(outputs, outpus0)//把第一个交易输出放入到专门存交易输出的容器中
 
 	//判断是否需要找零，如果需要找零，则需要构建一个新的找零输出
 
     if inputAmount - amount > 0 {
-    	output1 := TxOutPut{
-			Value:     inputAmount - amount,
-			ScriptPub: []byte(from),
-		}
+    	output1 := LockMoney2PubkHash(inputAmount - amount, from)
 		outputs = append(outputs, output1)
 	}
 

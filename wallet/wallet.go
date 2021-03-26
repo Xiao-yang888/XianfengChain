@@ -10,6 +10,7 @@ import (
 
 const KEYSTORE = "keystores"
 const ADDANDPAIR = "addrs_keypairs"
+const VERSION = "version"
 
 /**
  *定义wallet结构体，用于管理地址和对应的秘钥对信息

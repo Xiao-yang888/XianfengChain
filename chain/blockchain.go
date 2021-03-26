@@ -258,21 +258,17 @@ func (chain *BlockChain) SerchDBUTXOs(addr string) ([]transaction.UTXO) {
 			//a、遍历每个交易的交易输入
 			for _, input := range tx.Inputs {
 				//找到了花费记录
-				if string(input.ScritpSig) != addr {
+				if !input.VertifyInputWithAddress(addr) {
 					continue
 				}
 				spend = append(spend, input)
 			}
 			//b、遍历每个交易的交易输出:收入
 			for index, output := range tx.Outputs {
-				if string(output.ScriptPub) != addr {
+				if !output.CheckPubKHashWithAddress(addr) {
 					continue
 				}
-				utxo := transaction.UTXO{
-					TxId:     tx.TxHash,
-					Vout:     index,
-					TxOutPut: output,
-				}
+				utxo := transaction.NewUTXO(tx.TxHash, index, output)
 				inCome = append(inCome, utxo)
 			}
 		}
@@ -322,17 +318,14 @@ func (chain BlockChain) GetUTXOsWithBalance(addr string, txs []transaction.Trans
 	for _, tx := range txs {
 		//a，遍历交易输入，把花的钱记录下来
 		for _, input := range tx.Inputs {
-			if string(input.ScritpSig) == addr {
+			if input.VertifyInputWithAddress(addr) {
 				memSpends = append(memSpends, input)
 			}
 		}
 		//b，遍历交易输出，把收入的钱记录下来
 		for outIndex, output := range tx.Outputs {
-			if string(output.ScriptPub) == addr {
-				utxo := transaction.UTXO{
-					TxId:     tx.TxHash,
-					Vout:     outIndex,
-				}
+			if output.CheckPubKHashWithAddress(addr) {
+				utxo := transaction.NewUTXO(tx.TxHash, outIndex, output)
 				memInComes = append(memInComes, utxo)
 			}
 		}
@@ -343,9 +336,7 @@ func (chain BlockChain) GetUTXOsWithBalance(addr string, txs []transaction.Trans
 	for _, utxo := range dbUtxos {
 		isUTXOSpend = false
 		for _, spend := range memSpends {
-			if string(utxo.TxId[:]) == string(spend.TxId[:]) &&
-				utxo.Vout == spend.Vout &&
-				string(utxo.ScriptPub) == string(spend.ScritpSig) {
+			if utxo.IsUTXOSpend(spend) {
 				isUTXOSpend = true
 			}
 		}
@@ -369,6 +360,7 @@ func (chain BlockChain) GetUTXOsWithBalance(addr string, txs []transaction.Trans
  *定义区块链的发送交易的功能
  */
 func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts []float64) (error) {
+	var err error
 	//对所有的from和to进行合法性检查
 	for i := 0; i < len(froms); i ++ {
 		isFromValid := chain.Wallet.CheckAddress(froms[i])
@@ -395,20 +387,26 @@ func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts [
 			}
 		}
 
+		//获取from的原始公钥
+		keyPair := chain.Wallet.Address[from]
+		if len(keyPair.Pub) == 0 {
+			err = errors.New("构建交易出现错误")
+			break
+		}
 		//可花费的钱总额比要花费的钱数额大，才构建交易
-		newTx, err := transaction.CreateNewTransaction(utxos[0:utxoNum +1],
+		newTx, err := transaction.CreateNewTransaction(
+			utxos[0:utxoNum +1],
 			from,
-			tos[from_index],
+			keyPair.Pub,
+		tos[from_index],
 			amounts[from_index])
 		if err != nil {
 			return err
 		}
 		//对构建的交易newTx进行签名
-
-
 		newTxs = append(newTxs, *newTx)
 	}
-	err := chain.CreateNewBlock(newTxs)
+	err = chain.CreateNewBlock(newTxs)
 	if err != nil {
 		return err
 	}

@@ -31,6 +31,11 @@ func (cmd *CmdClient) ListAddress() {
     	fmt.Println(err.Error())
 		return
 	}
+	//如果本地节点暂时还没有地址，需要给用户提示
+	if len(addList) == 0 {
+		fmt.Println("暂无地址，可以使用go run main.go getnewaddress命令生成新地址")
+		return
+	}
 	fmt.Println("获取地址列表成功，地址信息如下：")
 	for index, add := range addList {
 		fmt.Printf("[%d]:%s\n", index + 1, add)
@@ -261,10 +266,10 @@ func (cmd *CmdClient) GetAllBlocks() {
 		for index, tx := range block.Transactions {
 			fmt.Printf("     第%d笔交易，交易hash：%x\n", index, tx.TxHash)
 		    for inputIndex, input := range tx.Inputs {
-		    	fmt.Printf("           第%d笔交易输入,%s花了%x的%d的钱\n", inputIndex, input.ScritpSig, input.TxId, input.Vout)
+		    	fmt.Printf("           第%d笔交易输入,花了%x的%d的钱\n", inputIndex, input.TxId, input.Vout)
 			}
 			for outputIndex, output := range tx.Outputs {
-				fmt.Printf("      第%d笔交易输出，%s实现收入%f\n", outputIndex,output.ScriptPub,  output.Value)
+				fmt.Printf("      第%d笔交易输出，实现收入%f\n", outputIndex, output.Value)
 			}
 		}
 		fmt.Println()
