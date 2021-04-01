@@ -4,7 +4,7 @@ import (
 	"XianfengChain04/chain"
 	"XianfengChain04/client"
 	"fmt"
-	"github.com/bolt-master"
+	"github.com/boltdb/bolt"
 )
 
 const BLOCKS = "xiangfengchain04.db"

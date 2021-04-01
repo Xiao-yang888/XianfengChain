@@ -6,7 +6,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/bolt-master"
+	"github.com/boltdb/bolt"
 	"math/big"
 )
 
@@ -388,24 +388,54 @@ func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts [
 		}
 
 		//获取from的原始公钥
-		keyPair := chain.Wallet.Address[from]
+		keyPair := chain.Wallet.GetKeyPairByAddress(from)
+		if keyPair == nil {
+			err = errors.New("交易失败，请重试")
+			break
+		}
 		if len(keyPair.Pub) == 0 {
-			err = errors.New("构建交易出现错误")
+			err = errors.New("构建交易出现错误，请重试")
 			break
 		}
 		//可花费的钱总额比要花费的钱数额大，才构建交易
 		newTx, err := transaction.CreateNewTransaction(
-			utxos[0:utxoNum +1],
+			utxos[:utxoNum +1],
 			from,
 			keyPair.Pub,
-		tos[from_index],
+		    tos[from_index],
 			amounts[from_index])
 		if err != nil {
 			return err
 		}
 		//对构建的交易newTx进行签名
+        err = newTx.SignTx(keyPair.Priv, utxos[:utxoNum + 1])
+        if err != nil {
+        	return err
+		}
+        //把经过签名以后的交易对象存入到内存中交易的切片中
 		newTxs = append(newTxs, *newTx)
 	}
+
+	//对交易进行签名验证，只有通过签名验证，才能将交易打包并生成新区块
+	//此处签名验证的逻辑和存储交易到新区快的逻辑理论上应该由其他节点完成
+	for _, tx := range newTxs {
+        //遍历构建的每一个交易，对每一笔依次进行签名验证
+		//1，根据交易首先查询到该笔交易使用了哪些utxo
+		spendUtxos := chain.FindSpentUTXOsByTx(tx, newTxs)
+		//2，调用交易的签名验证方法
+        isVerify, err := tx.VerifyTx(spendUtxos)//在调用verifyTx方法时，需要将交易所消费的具体的utxo
+        fmt.Println("交易签名验证结果：", isVerify)
+        if err != nil {
+        	return err
+		}
+		//3，验证签名的结果判断
+		//isVerify是一个bool类型值，true表示签名验证通过，false表示签名验证未通过
+		if !isVerify {
+			return errors.New("交易签名验证失败，请重试！")
+		}
+	}
+
+
 	err = chain.CreateNewBlock(newTxs)
 	if err != nil {
 		return err
@@ -455,4 +485,38 @@ func (chain *BlockChain) DumpPrivkey(addr string) (*ecdsa.PrivateKey, error) {
 	}
 	//4，找到了具体结果，将私钥返回
 	return keyPair.Priv, nil
+}
+
+/**
+ *根据特定的交易对象找到该笔交易所消费了哪些utxo，将这些utxo返回
+ */
+func (chain BlockChain) FindSpentUTXOsByTx(tran transaction.Transaction, memTxs []transaction.Transaction) []transaction.UTXO {
+	spendUTXOs := make([]transaction.UTXO, 0)
+	for chain.HasNext() {
+		block := chain.Next()//得到每一个区块
+		for _, tx := range block.Transactions {
+			for outIndex, output := range tx.Outputs {
+				utxo := transaction.NewUTXO(tx.TxHash, outIndex, output)
+				for _, input := range tran.Inputs {//遍历交易的消费记录，核实每一笔utxo是否已被花费
+					if utxo.IsUTXOSpend(input) {//true表示已被消费，false表示未被消费
+						spendUTXOs = append(spendUTXOs, utxo)
+					}
+				}
+			}
+		}
+	}
+
+	//从内存中的交易序列中找出当前交易已消费的utxo
+	for _, memTx := range memTxs {
+		for index, output := range memTx.Outputs {
+			utxo := transaction.NewUTXO(memTx.TxHash, index, output)
+			for _, input := range tran.Inputs {
+				if utxo.IsUTXOSpend(input) {
+					spendUTXOs = append(spendUTXOs, utxo)
+				}
+			}
+		}
+	}
+	//把找到的特定交易的所花费的utxo集合返回
+	return spendUTXOs
 }

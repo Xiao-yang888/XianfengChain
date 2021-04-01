@@ -44,7 +44,7 @@ func (input *TxInput) VertifyInputWithAddress(address string) bool {
 	pubk := input.PubK
 	hash256 := utils.Hash256(pubk)
 	ripemd160 := utils.HashRipemd160(hash256)
-	pubkHash := append([]byte(wallet.VERSION), ripemd160...)
+	pubkHash := append([]byte{wallet.VERSION}, ripemd160...)
 	//变换address为punkhash1
 	reAddress := utils.Decode(address)
 	rePubkHash := reAddress[:len(reAddress) - 4]

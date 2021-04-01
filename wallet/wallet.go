@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"encoding/gob"
-	"github.com/bolt-master"
+	"github.com/boltdb/bolt"
 )
 
 const KEYSTORE = "keystores"
 const ADDANDPAIR = "addrs_keypairs"
-const VERSION = "version"
+const VERSION = 0x00
 
 /**
  *定义wallet结构体，用于管理地址和对应的秘钥对信息
@@ -30,7 +30,7 @@ func (wallet *Wallet) NewAddress() (string, error) {
 	//4，ripemd160计算
 	ripemePub := utils.HashRipemd160(pubHash)
 	//5，添加版本号
-	versionPub := append([]byte{0x00}, ripemePub...)
+	versionPub := append([]byte{VERSION}, ripemePub...)
 	//6，双hash
 	firstHash := utils.Hash256(versionPub)
 	secondHash := utils.Hash256(firstHash)
@@ -130,4 +130,11 @@ func LoadAddrAndKeyPairsFromDB(engine *bolt.DB) (*Wallet, error) {
 		Engine:  engine,
 	}
 	return wallet, nil
+}
+
+/**
+ *根据地址获取对应的秘钥对信息
+ */
+func (wallet *Wallet) GetKeyPairByAddress(address string) (*KeyPair) {
+	return wallet.Address[address]
 }

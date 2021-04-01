@@ -32,15 +32,15 @@ func NewUTXO(txid [32]byte, vout int, out TxOutPut) UTXO {
 func (utxo *UTXO) IsUTXOSpend(spend TxInput) bool {
 	//判断txid是否一致
 	equalTxId := bytes.Compare(utxo.TxId[:], spend.TxId[:]) == 0
-	//判断索引的下标是否一致
-	eaualVout := utxo.Vout == spend.Vout
+	//判断索引的下标是q否一致
+	equalVout := utxo.Vout == spend.Vout
 	//判断消费者是否一致
 	//utxo.punkHash：公钥哈希
 	//spend.Punk：原始公钥
 	hash := utils.Hash256(spend.PubK)
 	ripemd160 := utils.HashRipemd160(hash)
-	pubkHash := append([]byte(wallet.VERSION), ripemd160...)
+	pubkHash := append([]byte{wallet.VERSION}, ripemd160...)
 	equalConsumer := bytes.Compare(pubkHash, utxo.PubkHash) == 0
 	//三个条件同时满足
-	return equalTxId && eaualVout && equalConsumer
+	return equalTxId && equalVout && equalConsumer
 }

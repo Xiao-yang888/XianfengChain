@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"math/big"
 )
 
 /**
@@ -29,4 +30,25 @@ func NewKeyPair() (*KeyPair, error) {
 		Pub:  pub,
 	}
 	return &keyPair, nil
+}
+
+/**
+ *恢复公钥信息
+ */
+func RecoverPublicKey(curve elliptic.Curve, data []byte) ecdsa.PublicKey {
+	x, y := elliptic.Unmarshal(curve, data)
+	pub := ecdsa.PublicKey{curve, x, y}
+	return pub
+}
+
+/**
+ *将[]byte格式的签名数据转换为r和s的big.Int类型
+ */
+func ConverSignature(sign []byte) (r, s *big.Int) {
+	rBig := new(big.Int)
+	sBig := new(big.Int)
+	rBig.SetBytes(sign[:len(sign)/2])
+	sBig.SetBytes(sign[len(sign)/2:])
+
+	return rBig, sBig
 }

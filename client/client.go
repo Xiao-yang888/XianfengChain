@@ -164,7 +164,6 @@ func (cmd *CmdClient) SendTransaction() {
 
     fromSlice, err := utils.JSONArray2String(*from)
     if err != nil {
-    	fmt.Println(err.Error())
     	fmt.Println("抱歉，参数格式不正确，清检查后重试！")
 		return
     }
