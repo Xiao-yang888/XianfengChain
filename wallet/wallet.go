@@ -11,6 +11,7 @@ import (
 const KEYSTORE = "keystores"
 const ADDANDPAIR = "addrs_keypairs"
 const VERSION = 0x00
+const COINBASE = "coinbase"//键名
 
 /**
  *定义wallet结构体，用于管理地址和对应的秘钥对信息
@@ -116,6 +117,10 @@ func LoadAddrAndKeyPairsFromDB(engine *bolt.DB) (*Wallet, error) {
 		//如果有keystore存在，从keystore桶中读取
 		addsAndKeyPairsBytes := bucket.Get([]byte(ADDANDPAIR))
 
+		if len(addsAndKeyPairsBytes) == 0 {
+			return nil
+		}
+
 		gob.Register(elliptic.P256())
 		decoder := gob.NewDecoder(bytes.NewReader(addsAndKeyPairsBytes))
 		err = decoder.Decode(&address)
@@ -137,4 +142,40 @@ func LoadAddrAndKeyPairsFromDB(engine *bolt.DB) (*Wallet, error) {
  */
 func (wallet *Wallet) GetKeyPairByAddress(address string) (*KeyPair) {
 	return wallet.Address[address]
+}
+
+/**
+ *设置该方法用于定义钱包的设置coinbase矿工地址的功能
+ */
+func (wallet *Wallet) SetCoinbase(address string) error {
+	var err error
+	wallet.Engine.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(KEYSTORE))
+		if bucket != nil {
+			bucket, err = bucket.CreateBucket([]byte(KEYSTORE))
+			if err != nil {
+				return err
+			}
+			//bucket已经存在，把用户设置的address持久化存储起来
+			bucket.Put([]byte(COINBASE), []byte(address))
+		}
+		return nil
+	})
+	return err
+}
+
+/**
+ *获取单前节点所设置的coinbase矿工地址
+ */
+func (wallet *Wallet) GetCoinbase() string {
+	var coinbase []byte
+	wallet.Engine.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(KEYSTORE))
+		if bucket == nil {
+			return nil
+		}
+		coinbase = bucket.Get([]byte(COINBASE))
+		return nil
+	})
+	return string(coinbase)
 }

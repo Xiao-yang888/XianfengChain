@@ -108,6 +108,10 @@ func (cmd *CmdClient) Run() {
 		cmd.ListAddress()//获取所有的地址信息列表
 	case DUMPPRIVKEY:
 		cmd.DumpPrivkey()
+	case SETCOINBASE:
+		cmd.SetCoinbase()//设置挖矿矿工的地址
+	case GETCOINBASE:
+		cmd.GetCoinbase()//查看当前节点所设置的矿工地址
 	case HELP:
 		cmd.Help()
 	default:
@@ -278,6 +282,38 @@ func (cmd *CmdClient) GetAllBlocks() {
 func (cmd *CmdClient) Default() {
 	fmt.Println("go run main.go: Unknow subcommand.")
 	fmt.Println("Run 'go run main.go help' for usage.")
+}
+
+/**
+ *设置矿工地址功能
+ */
+func (cmd *CmdClient) SetCoinbase() {
+	setCoinbase := flag.NewFlagSet(SETCOINBASE, flag.ExitOnError)
+	address := setCoinbase.String("address", "", "用户自定义设置的矿工地址")
+    setCoinbase.Parse(os.Args[2:])
+	if len(os.Args[2:]) > 2 {
+		fmt.Println("参数无法解析，请重试")
+		return
+	}
+	cmd.Chain.Setcoinbase(*address)
+}
+
+/**
+ *获取当前节点的coinbase矿工地址
+ */
+func (cmd *CmdClient) GetCoinbase() {
+	getCoinbase := flag.NewFlagSet(GETCOINBASE, flag.ExitOnError)
+	getCoinbase.Parse(os.Args[2:])
+	if len(os.Args[2:]) > 0 {
+		fmt.Println("无法解析参数，请重试")
+		return
+	}
+	miner := cmd.Chain.GetCoinbase()
+	if len(miner) == 0 {
+		fmt.Println("暂未设置coinbase矿工地址")
+		return
+	}
+	fmt.Println("coinbase矿工地址：", miner)
 }
 
 /**

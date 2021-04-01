@@ -10,8 +10,8 @@ import (
 	"math/big"
 )
 
-const BLOCKS = "blocks"
-const LASTHASH = "lasthash"
+const BLOCKS = "blocks"//桶名
+const LASTHASH = "lasthash"//建名
 
 /**
  *定义区块链结构体，该结构体用于们管理区块
@@ -64,7 +64,6 @@ func (chain *BlockChain) CreateCoinBase(addr string) error {
     if !isAddrValid{
     	return errors.New("抱歉，地址不符合规范，请检查后重试")
 	}
-
 	//2，创建一笔coinbase交易
 	coinbase, err := transaction.CreateCoinBase(addr)
 	if err != nil {
@@ -72,6 +71,11 @@ func (chain *BlockChain) CreateCoinBase(addr string) error {
 	}
 	//3，把coinbase交易存到区块中
 	err = chain.CreateGensis([]transaction.Transaction{*coinbase})
+	//4，把用户的addr设置为默认的矿工地址
+	if err == nil {
+		chain.Wallet.SetCoinbase(addr)
+	}
+
 	return err
 }
 
@@ -416,12 +420,31 @@ func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts [
 		newTxs = append(newTxs, *newTx)
 	}
 
+	//构建一个coinbase交易，存放到newTxs的第0个位置上，作为奖励的coinbase交易
+	miner := chain.GetCoinbase()
+	if len(miner) == 0 {
+		return errors.New("还未设置coinbase地址")
+	}
+
+	coinbase, err  := transaction.CreateCoinBase(miner)
+    if err != nil {
+    	return err
+	}
+	//构建一个新容器用于存放coinbase交易和所构建的用户的新交易
+	sumTxs := make([]transaction.Transaction, 0)
+	sumTxs = append(sumTxs, *coinbase)
+	sumTxs = append(sumTxs, newTxs...)
+
 	//对交易进行签名验证，只有通过签名验证，才能将交易打包并生成新区块
 	//此处签名验证的逻辑和存储交易到新区快的逻辑理论上应该由其他节点完成
-	for _, tx := range newTxs {
+	for _, tx := range sumTxs {
+		if tx.IsCoinbase() {//判断当前交易，如果是coinbase交易，直接跳过
+			continue
+		}
+
         //遍历构建的每一个交易，对每一笔依次进行签名验证
 		//1，根据交易首先查询到该笔交易使用了哪些utxo
-		spendUtxos := chain.FindSpentUTXOsByTx(tx, newTxs)
+		spendUtxos := chain.FindSpentUTXOsByTx(tx, sumTxs)
 		//2，调用交易的签名验证方法
         isVerify, err := tx.VerifyTx(spendUtxos)//在调用verifyTx方法时，需要将交易所消费的具体的utxo
         fmt.Println("交易签名验证结果：", isVerify)
@@ -436,7 +459,7 @@ func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts [
 	}
 
 
-	err = chain.CreateNewBlock(newTxs)
+	err = chain.CreateNewBlock(sumTxs)
 	if err != nil {
 		return err
 	}
@@ -519,4 +542,23 @@ func (chain BlockChain) FindSpentUTXOsByTx(tran transaction.Transaction, memTxs 
 	}
 	//把找到的特定交易的所花费的utxo集合返回
 	return spendUTXOs
+}
+
+/**
+ *用于设置挖矿的矿工地址
+ */
+func (chain *BlockChain) Setcoinbase(address string) error {
+	//1，地址规范性检查
+	if !chain.Wallet.CheckAddress(address) {
+		return errors.New("地址格式不符合规范!")
+	}
+	//2，通过规范性检查的地址可以进行持久化存储
+	return chain.Wallet.SetCoinbase(address)
+}
+
+/**
+ *返回当前节点的矿工的地址
+ */
+func (chain *BlockChain) GetCoinbase() string {
+	return chain.Wallet.GetCoinbase()
 }

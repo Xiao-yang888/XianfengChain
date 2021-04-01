@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 )
 
 const REWARSIXE = 50
@@ -94,8 +93,11 @@ func CreateNewTransaction(utxos []UTXO, from string,pubk []byte, to string, amou
  *返回true表示签名验证通过，返回false表示签名验证不通过
  */
 func (tx *Transaction) VerifyTx(utxos []UTXO) (bool, error) {
+	if tx.IsCoinbase() {//如果传入的交易是coinbase交易，不需要验签，直接返回true
+		return true, nil
+	}
+
 	if len(tx.Inputs) != len(utxos) {
-	    fmt.Println(len(tx.Inputs), len(utxos))
 		//交易中的input与所引用的utxo个数不一致，直接返回false
 		return false, errors.New("签名验证失败")
 	}
@@ -134,6 +136,10 @@ func (tx *Transaction) VerifyTx(utxos []UTXO) (bool, error) {
  *对交易进行签名
  */
 func (tx *Transaction) SignTx(priv *ecdsa.PrivateKey, utxos []UTXO) (error) {
+	if tx.IsCoinbase() {//判断传入的交易是否是coinbase交易，是则直接返回
+		return nil
+	}
+
 	var err error
 	if len(tx.Inputs) != len(utxos) {
 		err = errors.New("签名失败，请重试")
@@ -217,4 +223,12 @@ func (tx Transaction)  CopyTx() Transaction {
 		Inputs:  inputs,
 		Outputs: outputs,
 	}
+}
+
+/**
+ *该方法用于判断某个具体交易是否是coinbase交易
+ *是返回true，不是返回false
+ */
+func (tx *Transaction) IsCoinbase() bool {
+	return len(tx.Inputs) == 0 && len(tx.Outputs) == 1
 }
