@@ -26,30 +26,12 @@ func (wallet *Wallet) NewAddress() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	//3，对公钥进行sha256哈希
-	pubHash := utils.Hash256(keyPair.Pub)
-	//4，ripemd160计算
-	ripemePub := utils.HashRipemd160(pubHash)
-	//5，添加版本号
-	versionPub := append([]byte{VERSION}, ripemePub...)
-	//6，双hash
-	firstHash := utils.Hash256(versionPub)
-	secondHash := utils.Hash256(firstHash)
-	//7，截取前四个字节作为地址校验位
-	check  := secondHash[:4]
-	//8，拼接到versionPub的后面
-	originAddress := append(versionPub, check...)
-	//9，base58编码
-	address, err := utils.Encode(originAddress), nil
-	if err != nil {
-		return "", err
-	}
+
+	address := wallet.GetAddressByPubk(keyPair.Pub)
 	//把新生成的地址和对应的秘钥对存入到wallet的map结构中管理起来
 	wallet.Address[address] = keyPair//仅仅是内存
-
 	//把更新了地址信息和对应秘钥对的map结构中的数据持久化存储到
     wallet.SaveAddAndKeyPairs2DB()
-
 	return  address, nil
 }
 
@@ -178,4 +160,36 @@ func (wallet *Wallet) GetCoinbase() string {
 		return nil
 	})
 	return string(coinbase)
+}
+
+/**
+ *根据给定的公钥哈希，计算得到对应的地址，并将该地址返回
+ */
+func (wallet *Wallet) GetAddressByPubkHash(data []byte) string {
+	//6，双hash
+	firstHash := utils.Hash256(data)
+	secondHash := utils.Hash256(firstHash)
+	//7，截取前四个字节作为地址校验位
+	check  := secondHash[:4]
+	//8，拼接到versionPub的后面
+	originAddress := append(data, check...)
+	//9，base58编码
+	address := utils.Encode(originAddress)
+	return address
+}
+
+/**
+ *通过原始公钥计算得到对应的地址并将地址返回
+ */
+func (wallet *Wallet) GetAddressByPubk(pubk []byte) string {
+	//3，对公钥进行sha256哈希
+	pubHash := utils.Hash256(pubk)
+	//4，ripemd160计算
+	ripemePub := utils.HashRipemd160(pubHash)
+	//5，添加版本号
+	versionPub := append([]byte{VERSION}, ripemePub...)
+	//6，将生成地址的第六步到第九步单独封装成一个方法，在此调用
+	address := wallet.GetAddressByPubkHash(versionPub)
+	//将地址进行返回
+	return address
 }

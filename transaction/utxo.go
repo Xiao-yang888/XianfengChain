@@ -15,6 +15,8 @@ type UTXO struct {
     TxOutPut  //该笔收入的面额和拥有者
 }
 
+
+
 /**
  *实例化一个UTXO的结构体实例
  */
@@ -43,4 +45,15 @@ func (utxo *UTXO) IsUTXOSpend(spend TxInput) bool {
 	equalConsumer := bytes.Compare(pubkHash, utxo.PubkHash) == 0
 	//三个条件同时满足
 	return equalTxId && equalVout && equalConsumer
+}
+
+/**
+ *某个utxo与给定的utxo进行比较判断两个utxo是否相等
+ */
+func (utxo *UTXO) EqualSpendRecord(specified SpendRecordInterface) bool {
+	txId := specified.GetTxId()
+	equalTxId := bytes.Compare(utxo.TxId[:], txId[:]) == 0
+	equalVout := utxo.Vout == specified.GetVout()
+
+	return equalTxId && equalVout
 }

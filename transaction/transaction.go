@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"time"
 )
 
 const REWARSIXE = 50
@@ -22,6 +23,7 @@ type Transaction struct {
 	Inputs  []TxInput
 	//交易输出
 	Outputs []TxOutPut
+	LockedTime int64 //表示交易生成的时间
 }
 
 /**
@@ -33,6 +35,7 @@ func CreateCoinBase(addr string) (*Transaction, error) {
 
 	coinbase := Transaction{
 		Outputs: []TxOutPut{output0},
+		LockedTime: time.Now().Unix(),
 	}
 	coinbaseBytes, err := utils.Encoder(coinbase)
 	if err != nil {

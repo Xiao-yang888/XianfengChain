@@ -2,7 +2,9 @@ package chain
 
 import (
 	"XianfengChain04/transaction"
+	"XianfengChain04/utxoset"
 	"XianfengChain04/wallet"
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -22,6 +24,7 @@ type BlockChain struct {
 	LastBlock          Block//最新最后的区块
 	IteratorBlockHash  [32]byte//表示当前迭代到了哪个区块，该变量用于记录迭代到的区块哈希
     Wallet             wallet.Wallet//引入wallet字段作为 blockchain的属性
+    UTXOSet            utxoset.UTXOSet//utxoset是用来关于utxo集合的操作
 }
 
 func CreateChain(db *bolt.DB) (*BlockChain, error) {
@@ -46,11 +49,15 @@ func CreateChain(db *bolt.DB) (*BlockChain, error) {
     	return nil, err
 	}
 
+	//创建或者加载utxoset结构体对象
+	set := utxoset.NewUTXOSet(db)
+
 	blockChain := BlockChain{
 		DB:                db,
 		LastBlock:         lastBlock,
 		IteratorBlockHash: lastBlock.Hash,
 		Wallet:            *wallet,
+		UTXOSet:           set,
 	}
 	return &blockChain, nil
 }
@@ -73,9 +80,22 @@ func (chain *BlockChain) CreateCoinBase(addr string) error {
 	err = chain.CreateGensis([]transaction.Transaction{*coinbase})
 	//4，把用户的addr设置为默认的矿工地址
 	if err == nil {
-		chain.Wallet.SetCoinbase(addr)
+		err = chain.Wallet.SetCoinbase(addr)
+		if err != nil {
+			fmt.Println("设置矿工地址遇到错误：", err.Error())
+		}
+	}
+	//5，把coinbase交易产生的交易输出保存到utxoset中去
+	utxos := make([]transaction.UTXO, 0)
+	for index, output := range coinbase.Outputs {
+		utxo := transaction.NewUTXO(coinbase.TxHash, index, output)
+		utxos = append(utxos, utxo)
 	}
 
+	success, err := chain.UTXOSet.AddUTXOsWithAddress(addr, utxos)
+	if !success {
+		return err
+	}
 	return err
 }
 
@@ -315,7 +335,11 @@ func (chain *BlockChain) GetBalance(addr string) (float64, error) {
  *该方法用于实现地址余额统计和地址所可以花费的utxo集合
  */
 func (chain BlockChain) GetUTXOsWithBalance(addr string, txs []transaction.Transaction) ([]transaction.UTXO, float64) {
-	dbUtxos := chain.SerchDBUTXOs(addr)
+	//dbUtxos := chain.SerchDBUTXOs(addr)
+	dbUtxos, err := chain.UTXOSet.QueryUTXOsByAddress(addr)
+	if err != nil {
+		return nil, -1
+	}
 	//看一看是否已经花了某个bolt.db文件中的utxo，如果某个utxo被花掉了，应该剔除掉
 	memSpends := make([]transaction.TxInput, 0)
 	memInComes := make([]transaction.UTXO, 0)
@@ -458,12 +482,83 @@ func (chain *BlockChain) SendTransaction(froms []string, tos []string, amounts [
 		}
 	}
 
-
+	//sumTxs是要存入到区块中的所有交易
+	     //sumTxs：coinbase + 用户构建的
 	err = chain.CreateNewBlock(sumTxs)
 	if err != nil {
 		return err
 	}
-	return nil
+	//遍历每一笔交易，找出所有交易中产生的所有未花费的交易输出
+	//其它节点执行该段程序逻辑
+	utxoSet := make(map[string][]transaction.UTXO)
+	for txIndex, tx := range sumTxs {
+		for index, output := range tx.Outputs {
+			utxo := transaction.NewUTXO(tx.TxHash, index, output)
+
+			isSpent := false
+			//判断是否交易输出是否被后面的某个交易所消费
+			for i := txIndex + 1; i< len(sumTxs); i++ {
+				for _, input := range sumTxs[i].Inputs {
+					if utxo.IsUTXOSpend(input) {//被消费了
+						isSpent = true
+					}
+				}
+			}
+			//如果把后面的交易全部找完，utxo依然没被消费，则代表该utxo确实是最新产生的utxo
+			if !isSpent {
+				address := chain.Wallet.GetAddressByPubkHash(utxo.PubkHash)
+				utxos := utxoSet[address]
+				if len(utxos) == 0 {
+					utxos = make([]transaction.UTXO, 0)
+				}
+				utxos = append(utxos, utxo)
+				//重新将累加以后的utxo集合赋值到map集合中
+				utxoSet[address] = utxos
+			}
+		}
+	}
+
+	//遍历utxoSet数据结构，获取到每一条数据，然后调用utxoset.AddUTXOsWithAddress方法进行保存
+	for address, utxos := range utxoSet {
+		success, err := chain.UTXOSet.AddUTXOsWithAddress(address, utxos)
+	    if err != nil {
+	    	return err
+		}
+		if !success {
+			return errors.New("更新utxo数据遇到错误")
+		}
+	}
+
+	//把已经消费了的utxo从utxoSet中删除
+	spendRecords := make(map[string][]utxoset.SpendRecord)
+	for _, tx := range sumTxs {
+		for _, input :=  range tx.Inputs {
+			//用于记录一笔消费
+			record := utxoset.NewSpendRecord(input.TxId, input.Vout)
+			//先获取某个地址的消费统计结
+			address := chain.Wallet.GetAddressByPubk(input.PubK)
+			records := spendRecords[address]//可能有数据可能没数据
+			if len(records) == 0 {//说明map中还未统计到该地址的消费
+				records = make([]utxoset.SpendRecord, 0)
+			}
+			//把循环遍历到的record记录追加到容器中
+			records = append(records, record)
+
+			spendRecords[address] = records//将更新后的消费记录重新存到map数据结构中
+		}
+	}
+
+	//遍历所有消费的统计记录，依次将每个地址的消费，到utxoset中去删除
+	for address, records := range spendRecords {
+		success, err := chain.UTXOSet.DeleteUTXOsWithAddress(address, records)
+	    if err != nil {
+	    	return err
+		}
+		if !success {
+			return errors.New("删除utxo数据记录出现错误")
+		}
+	}
+	return err
 }
 
 /**
@@ -515,22 +610,43 @@ func (chain *BlockChain) DumpPrivkey(addr string) (*ecdsa.PrivateKey, error) {
  */
 func (chain BlockChain) FindSpentUTXOsByTx(tran transaction.Transaction, memTxs []transaction.Transaction) []transaction.UTXO {
 	spendUTXOs := make([]transaction.UTXO, 0)
-	for chain.HasNext() {
-		block := chain.Next()//得到每一个区块
-		for _, tx := range block.Transactions {
-			for outIndex, output := range tx.Outputs {
-				utxo := transaction.NewUTXO(tx.TxHash, outIndex, output)
-				for _, input := range tran.Inputs {//遍历交易的消费记录，核实每一笔utxo是否已被花费
-					if utxo.IsUTXOSpend(input) {//true表示已被消费，false表示未被消费
-						spendUTXOs = append(spendUTXOs, utxo)
-					}
-				}
-			}
-		}
+	//for chain.HasNext() {
+	//	block := chain.Next()//得到每一个区块
+	//	for _, tx := range block.Transactions {
+	//		for outIndex, output := range tx.Outputs {
+	//			utxo := transaction.NewUTXO(tx.TxHash, outIndex, output)
+	//			for _, input := range tran.Inputs {//遍历交易的消费记录，核实每一笔utxo是否已被花费
+	//				if utxo.IsUTXOSpend(input) {//true表示已被消费，false表示未被消费
+	//					spendUTXOs = append(spendUTXOs, utxo)
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+
+	if len(tran.Inputs) <= 0 {//如果有0个input表示没有消费，就不需要后续的逻辑了
+		return spendUTXOs
+	}
+
+	spendRecords := make([]utxoset.SpendRecord, 0)
+	for _, input := range tran.Inputs {
+		//遍历到的每一个input都代表一个消费，即都代表一张钱
+		record := utxoset.NewSpendRecord(input.TxId, input.Vout)
+		spendRecords = append(spendRecords, record)
+	}
+
+	address := chain.Wallet.GetAddressByPubk(tran.Inputs[0].PubK)
+	var err error
+	spendUTXOs, err = chain.UTXOSet.GetUTXOsBySpendRecords(address, spendRecords)
+    if err != nil {
+    	return nil
 	}
 
 	//从内存中的交易序列中找出当前交易已消费的utxo
 	for _, memTx := range memTxs {
+		if bytes.Compare(memTx.TxHash[:], tran.TxHash[:]) == 0 {
+			continue
+		}
 		for index, output := range memTx.Outputs {
 			utxo := transaction.NewUTXO(memTx.TxHash, index, output)
 			for _, input := range tran.Inputs {

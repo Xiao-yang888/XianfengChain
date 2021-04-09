@@ -123,3 +123,4 @@ func NewBlock(height int64, prev [32]byte, txs []transaction.Transaction) Block 
 
 	return newBlock
 }
+
